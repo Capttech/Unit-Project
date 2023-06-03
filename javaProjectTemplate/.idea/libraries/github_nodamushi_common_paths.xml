@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="github.nodamushi.common.paths" type="repository">
+    <properties maven-id="com.github.nodamushi:common.paths:1.0.0" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/common.paths-1.0.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
