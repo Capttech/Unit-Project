@@ -159,7 +159,7 @@ public class Main {
         String[] allOptions = { "A", "S", "R", "C", "P", "L", "E", "V", "I", "H" };
         String inputQuestion = "[A]-Add employee | [S]-Show all employees | [R]-Remove a Employee | [E]-Edit a Employee | [C]-Close window";
         String inputQuestionExpanded = "[V]-View employee review | [I]-View employee projects | [H]-View Pay History";
-        String inputManagement = "[L]-Log out | [P]-Reset Password";
+        String inputManagement = "[L]-Log out | [P]-Add Password";
         String userInput = PFS.inputObj(inputQuestion + "\n" + inputQuestionExpanded + "\n" + inputManagement,
                 allOptions);
         PFS.clearConsole();
