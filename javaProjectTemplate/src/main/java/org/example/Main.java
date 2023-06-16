@@ -3,8 +3,10 @@
 //=======================================\\
 package org.example;
 
+import java.sql.*;
 import java.util.HashMap;
 import javax.lang.model.type.UnknownTypeException;
+import javax.swing.*;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
@@ -18,28 +20,133 @@ import java.util.Random;
 //===================================\\
 //==========| MY SOLUTION |==========\\
 //===================================\\
+class SQL {
+    public static void loadCurrentEmployees() {
+        try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/employeeManager")) {
+            String SQL = "SELECT employees.id, employees.firstname, employees.lastname, employees.position, employees.age, employees.pay, employees.payyear, employees.creation, raiting.number FROM employees INNER JOIN raiting ON employees.id = raiting.id";
+            PreparedStatement prepareStmnt = conn.prepareStatement(SQL);
+            ResultSet response = prepareStmnt.executeQuery();
+            while (response.next()) {
+                HashMap<String, String> newEmployee = new HashMap<String, String>();
+                newEmployee.put("firstName", response.getString("firstname"));
+                newEmployee.put("lastName", response.getString("lastname"));
+                newEmployee.put("position", response.getString("position"));
+                newEmployee.put("age", response.getString("age"));
+                newEmployee.put("pay", response.getString("pay"));
+                newEmployee.put("yearPay", response.getString("payyear"));
+                newEmployee.put("createdDate", response.getString("creation"));
+                newEmployee.put("rate", response.getString("number"));
+                Main.database.allEmployees.put(response.getString("id"), newEmployee);
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public static void loadEmployeeReviews() {
+        try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/employeeManager")) {
+            String SQL = "SELECT id, context FROM reviews";
+            PreparedStatement prepareStmnt = conn.prepareStatement(SQL);
+            ResultSet response = prepareStmnt.executeQuery();
+            while (response.next()) {
+                PFS.log(response.getString("id"));
+                PFS.log(response.getString("context"));
+                Main.database.employeeReviews.put(response.getString("id"), response.getString("context"));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public static void loadAllProjects() {
+        for (String i : Main.database.allEmployees.keySet()) {
+            try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/employeeManager")) {
+                String SQL = "SELECT id, title, description FROM projects WHERE id="+i;
+                PreparedStatement prepareStmnt = conn.prepareStatement(SQL);
+                ResultSet response = prepareStmnt.executeQuery();
+                ArrayList<HashMap<String, String>> allProjects = new ArrayList<HashMap<String, String>>();
+                while (response.next()) {
+                    HashMap<String, String> newProject = new HashMap<String, String>();
+                    newProject.put("title", response.getString("title"));
+                    newProject.put("description", response.getString("description"));
+                    allProjects.add(newProject);
+                }
+                Main.database.projects.put(i, allProjects);
+            } catch (SQLException e) {
+                System.out.println(e.getMessage());
+            }
+        }
+    }
+
+    public static void loadEmployeePayouts() {
+        for (String i : Main.database.allEmployees.keySet()) {
+            try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/employeeManager")) {
+                String SQL = "SELECT id, amount, date FROM previouspay WHERE id="+i;
+                PreparedStatement prepareStmnt = conn.prepareStatement(SQL);
+                ResultSet response = prepareStmnt.executeQuery();
+                ArrayList<HashMap<String, String>> allPayouts = new ArrayList<HashMap<String, String>>();
+                while (response.next()) {
+                    HashMap<String, String> newPayout = new HashMap<String, String>();
+                    newPayout.put("id", response.getString("id"));
+                    newPayout.put("amount", response.getString("amount"));
+                    newPayout.put("date", response.getString("date"));
+                    allPayouts.add(newPayout);
+                }
+                Main.database.payouts.put(i, allPayouts);
+            } catch (SQLException e) {
+                System.out.println(e.getMessage());
+            }
+        }
+    }
+
+    public static void loadAllVaidPasswords() {
+        try (Connection conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/employeeManager")) {
+            String SQL = "SELECT code FROM accesscodes";
+            PreparedStatement prepareStmnt = conn.prepareStatement(SQL);
+            ResultSet response = prepareStmnt.executeQuery();
+            while (response.next()) {
+                Main.database.allCodes.add(response.getString("code"));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+}
+
 public class Main {
     public class database {
-        public static String password = "password";
+        public static ArrayList<String> allCodes = new ArrayList<String>();
         public static HashMap<String, HashMap<String, String>> allEmployees = new HashMap<String, HashMap<String, String>>();
+        public static HashMap<String, String> employeeReviews = new HashMap<String, String>();
+        public static HashMap<String, ArrayList<HashMap<String, String>>> projects = new HashMap<String, ArrayList<HashMap<String, String>>>();
+        public static HashMap<String, ArrayList<HashMap<String, String>>> payouts = new HashMap<String, ArrayList<HashMap<String, String>>>();
         public static boolean firstRun = true;
     }
 
     public static void main(String[] args) {
+        SQL.loadCurrentEmployees();
+        SQL.loadAllProjects();
+        SQL.loadEmployeeReviews();
+        SQL.loadEmployeePayouts();
+        SQL.loadAllVaidPasswords();
         Main.login();
     }
 
-    public  static void login() {
-        String givenPassword = "";
+    public static void login() {
+        boolean passCodeCheck = false;
         PFS.clearConsole();
         PFS.log("Thank you for using PFS Employee Manager. User authentication is required.");
-        while (!givenPassword.equals(database.password)) {
-            givenPassword = PFS.inputStr("Please confirm the password.");
-            if (!givenPassword.equals(database.password)) {
-                PFS.log("Incorrect password!");
-            } else {
-                Main.showOptions();
+        while (passCodeCheck == false) {
+            String givenPassword = PFS.inputStr("Please confirm a password.");
+            for (int i = 0; i < database.allCodes.size(); i++) {
+                if (givenPassword.equals(database.allCodes.get(i))) {
+                    Main.showOptions();
+                    passCodeCheck = true;
+                    return;
+
+                }
             }
+            PFS.log("Incorrect password!");
         }
     }
 
@@ -49,10 +156,12 @@ public class Main {
             database.firstRun = false;
             PFS.log("Welcome to PFS user manager.");
         }
-        String[] allOptions = { "A", "S", "R", "C", "P", "L", "E" };
+        String[] allOptions = { "A", "S", "R", "C", "P", "L", "E", "V", "I", "H" };
         String inputQuestion = "[A]-Add employee | [S]-Show all employees | [R]-Remove a Employee | [E]-Edit a Employee | [C]-Close window";
+        String inputQuestionExpanded = "[V]-View employee review | [I]-View employee projects | [H]-View Pay History";
         String inputManagement = "[L]-Log out | [P]-Reset Password";
-        String userInput = PFS.inputObj(inputQuestion + "\n" + inputManagement, allOptions);
+        String userInput = PFS.inputObj(inputQuestion + "\n" + inputQuestionExpanded + "\n" + inputManagement,
+                allOptions);
         PFS.clearConsole();
         if (userInput == "A") {
             Main.addEmployee();
@@ -64,7 +173,7 @@ public class Main {
         } else if (userInput == "R") {
             Main.removeEmployee();
         } else if (userInput == "P") {
-            Main.changePassword();
+            Main.addPassword();
         } else if (userInput == "L") {
             database.firstRun = true;
             PFS.log("Logging Out...");
@@ -72,6 +181,12 @@ public class Main {
             Main.login();
         } else if (userInput == "E") {
             Main.editUser();
+        } else if (userInput == "V") {
+            Main.viewReview();
+        } else if (userInput == "I") {
+            Main.viewProjects();
+        } else if (userInput == "H") {
+            Main.viewPayHistory();
         }
     }
 
@@ -127,7 +242,7 @@ public class Main {
         PFS.log("==========");
         String removeNumber = PFS.inputStr("Enter the employee number you want to remove. Enter 0 to cancel");
         if (removeNumber != "0") {
-            if(database.allEmployees.containsKey(removeNumber)) {
+            if (database.allEmployees.containsKey(removeNumber)) {
                 PFS.log("Removed employee...");
                 database.allEmployees.remove(removeNumber);
             } else {
@@ -140,14 +255,19 @@ public class Main {
         Main.showOptions();
     }
 
-    public static void changePassword() {
-        String currentPassword = PFS.inputStr("Please confirm your current password");
-        if (currentPassword.equals(database.password)) {
-            String newPassword = PFS.inputStr("What is the new password?");
-            database.password = newPassword;
-            PFS.log("Your password has been changed");
-        } else {
-            PFS.log("Your password did not match the current password");
+    public static void addPassword() {
+        boolean passCodeCheck = false;
+        while (passCodeCheck == false) {
+            String givenPassword = PFS.inputStr("Please confirm a current password");
+            for (int i = 0; i < database.allCodes.size(); i++) {
+                if (givenPassword.equals(database.allCodes.get(i))) {
+                    String newPassword = PFS.inputStr("What is the password you would like to add?");
+                    Main.database.allCodes.add(newPassword);
+                    PFS.log("Your password has been added");
+                    passCodeCheck = true;
+                }
+            }
+            PFS.log("Incorrect password!");
         }
         PFS.inputStr("PRESS [ENTER] KEY TO CONTINUE");
         Main.showOptions();
@@ -158,7 +278,7 @@ public class Main {
         PFS.log("==========");
         String employeeSelection = PFS.inputStr("Enter the employee number you would like to edit. Enter 0 to cancel");
         if (employeeSelection != "0") {
-            if(database.allEmployees.containsKey(employeeSelection)) {
+            if (database.allEmployees.containsKey(employeeSelection)) {
                 HashMap<String, String> currentEmployee = database.allEmployees.get(employeeSelection);
                 String[] allOptions = { "F", "L", "P", "Y", "A", "E" };
                 String inputQuestion = "What would you like to edit about this employee?";
@@ -198,10 +318,86 @@ public class Main {
         PFS.inputStr("PRESS [ENTER] KEY TO CONTINUE");
         Main.showOptions();
     }
+
+    public static void viewReview() {
+        Utils.showAllEmployeeDetails();
+        PFS.log("==========");
+        String employeeSelection = PFS.inputStr("Enter the employee number you would like to edit. Enter 0 to cancel");
+        if (employeeSelection != "0") {
+            if (database.allEmployees.containsKey(employeeSelection)) {
+                String review = database.employeeReviews.get(employeeSelection);
+                if (review == null) {
+                    PFS.log("===Employee Review===");
+                    PFS.log("This employee has not been reviewed.");
+                } else {
+                    PFS.log("===Employee Review===");
+                    PFS.log(review);
+                }
+            } else {
+                PFS.log("There was no employee by that number");
+            }
+        } else {
+            PFS.log("Canceled action...");
+        }
+        PFS.inputStr("PRESS [ENTER] KEY TO CONTINUE");
+        Main.showOptions();
+    }
+
+    public static void viewProjects() {
+        Utils.showAllEmployeeDetails();
+        PFS.log("==========");
+        String employeeSelection = PFS.inputStr("Enter the employee number you would like to view. Enter 0 to cancel");
+        if (employeeSelection != "0") {
+            if (database.allEmployees.containsKey(employeeSelection)) {
+                ArrayList<HashMap<String, String>> fullList = Main.database.projects.get(employeeSelection);
+                if (fullList != null) {
+                    for (int i = 0; i < fullList.size(); i++) {
+                        HashMap<String, String> curProject = fullList.get(i);
+                        PFS.log("| " + curProject.get("title") + " |");
+                        int numberInterval = i + 1;
+                        PFS.log(numberInterval + ") " + curProject.get("description"));
+                    }
+                } else {
+                    PFS.log("They do not have any tasks");
+                }
+            } else {
+                PFS.log("There was no employee by that number");
+            }
+        } else {
+            PFS.log("Canceled action...");
+        }
+        PFS.inputStr("PRESS [ENTER] KEY TO CONTINUE");
+        Main.showOptions();
+    }
+
+    public static void viewPayHistory() {
+        Utils.showAllEmployeeDetails();
+        PFS.log("==========");
+        String employeeSelection = PFS.inputStr("Enter the employee number you would view their pay history. Enter 0 to cancel");
+        if (employeeSelection != "0") {
+            if (database.allEmployees.containsKey(employeeSelection)) {
+                ArrayList<HashMap<String, String>> fullList = Main.database.payouts.get(employeeSelection);
+                if (fullList != null) {
+                    for (int i = 0; i < fullList.size(); i++) {
+                        HashMap<String, String> curProject = fullList.get(i);
+                        PFS.log("Amount: $" + curProject.get("amount") + " | Date: " + curProject.get("date"));
+                    }
+                } else {
+                    PFS.log("They have not been paid");
+                }
+            } else {
+                PFS.log("There was no employee by that number");
+            }
+        } else {
+            PFS.log("Canceled action...");
+        }
+        PFS.inputStr("PRESS [ENTER] KEY TO CONTINUE");
+        Main.showOptions();
+    }
 }
 
 class Utils {
-    static void showAllEmployeeDetails(){
+    static void showAllEmployeeDetails() {
         for (String i : Main.database.allEmployees.keySet()) {
             PFS.log("==========");
             PFS.log("Employee Number: " + i);
@@ -212,6 +408,7 @@ class Utils {
             PFS.log("Hourly Pay: $" + Main.database.allEmployees.get(i).get("pay"));
             PFS.log("Yearly Pay: $" + Main.database.allEmployees.get(i).get("yearPay"));
             PFS.log("Created Date: " + Main.database.allEmployees.get(i).get("createdDate"));
+            PFS.log("Rate: " + Main.database.allEmployees.get(i).get("rate"));
         }
     }
 }
